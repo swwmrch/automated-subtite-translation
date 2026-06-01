@@ -59,7 +59,17 @@ All menus use `questionary` — arrow keys to move, space to toggle (multi-selec
     episode02_KO.srt
 ```
 
-### Settings (same questions for every run, including batch)
+### Batch mode — settings scope (only shown when "Translate ALL" is selected)
+
+```
+? Apply settings to…
+  > All files  (ask once, use for every file)
+    Per file   (ask settings again before each file)
+```
+
+### Settings
+
+Asked once (all-files mode) or before each file (per-file mode).
 
 ```
 ? Language(s)?  (space to select, enter to confirm)
@@ -76,7 +86,7 @@ All menus use `questionary` — arrow keys to move, space to toggle (multi-selec
 
 ### Progress
 
-One file at a time. For batch runs, each file is announced before its languages are processed.
+One file at a time. Each file is announced before its languages are processed.
 
 ```
 ─── episode01_KO.srt ────────────────────────────────────
