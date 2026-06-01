@@ -242,7 +242,6 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-gray-400">Runs in order: EN → TC → TW</p>
             </div>
 
             {/* Model */}
