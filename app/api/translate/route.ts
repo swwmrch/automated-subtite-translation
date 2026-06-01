@@ -13,43 +13,91 @@ const MAX_FILE_SIZE = 512 * 1024; // 500 KB
 const ALLOWED_MODELS = ["gpt-4o", "gpt-4o-mini"] as const;
 
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const enc = new TextEncoder();
 type GptModel = (typeof ALLOWED_MODELS)[number];
+
+const MAX_NOTES_LENGTH = 300;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildPrompt(blocks: string[], lang: "EN" | "TC" | "TW"): string {
-  const count = blocks.length;
-  const body = blocks.join("\n\n");
+function buildSystemPrompt(lang: "EN" | "TC" | "TW"): string {
+  const base =
+    "You are a professional Korean subtitle translator specializing in Korean entertainment — " +
+    "K-dramas, variety shows, and TV programmes. " +
+    "You preserve the natural emotional tone, conversational rhythm, and cultural nuance of every line. " +
+    "You are expert at Korean honorifics, onomatopoeia, and subtitle formatting.";
 
   if (lang === "TC") {
     return (
-      `Translate ALL ${count} Korean subtitle blocks below into Traditional Chinese used in Taiwan. ` +
-      `Use Taiwanese vocabulary and expressions. Avoid Mainland Chinese wording. ` +
-      `Keep subtitle timing unchanged. Natural conversational Taiwanese Mandarin. ` +
-      `Preserve the exact SRT block structure (number, timestamp, text). ` +
-      `You MUST return exactly ${count} blocks — one for every input block. ` +
-      `Return ONLY the translated SRT blocks — no explanations, no extra text.\n\n---\n\n${body}`
+      base +
+      " You translate into Traditional Chinese as used in Taiwan (台灣繁體中文/台灣華語). " +
+      "You use Taiwan Mandarin vocabulary naturally and avoid all Mainland Chinese expressions."
     );
   }
   if (lang === "TW") {
     return (
-      `Translate ALL ${count} Korean subtitle blocks below into Taiwanese Hokkien (台語/Taigi). ` +
-      `Write the Taiwanese using Chinese characters (漢字) as naturally used in written Taiwanese. ` +
-      `Use authentic Taiwanese Hokkien vocabulary and phrasing — not Mandarin translated into Taiwanese. ` +
-      `Keep subtitle timing unchanged. ` +
-      `Preserve the exact SRT block structure (number, timestamp, text). ` +
-      `You MUST return exactly ${count} blocks — one for every input block. ` +
-      `Return ONLY the translated SRT blocks — no explanations, no extra text.\n\n---\n\n${body}`
+      base +
+      " You translate into authentic Taiwanese Hokkien (台語/臺語) written in Chinese characters (漢字), " +
+      "following the character standards of Taiwan's Ministry of Education (教育部台灣閩南語推薦用字)."
     );
   }
+  return base;
+}
+
+function outputRules(count: number, contextLine: string, body: string): string {
   return (
-    `Translate ALL ${count} Korean subtitle blocks below into English. ` +
-    `Use natural conversational English. Keep subtitle timing unchanged. ` +
-    `Preserve the exact SRT block structure (number, timestamp, text). ` +
-    `You MUST return exactly ${count} blocks — one for every input block. ` +
-    `Return ONLY the translated SRT blocks — no explanations, no extra text.\n\n---\n\n${body}`
+    `\nOutput format:\n` +
+    `- Exact SRT structure: index number → timestamp → translated text\n` +
+    `- Return exactly ${count} blocks — no merging, no splitting\n` +
+    `- Return ONLY the SRT blocks — no commentary, no extra text` +
+    `${contextLine}\n\n---\n\n${body}`
+  );
+}
+
+function buildPrompt(blocks: string[], lang: "EN" | "TC" | "TW", notes: string): string {
+  const count = blocks.length;
+  const body = blocks.join("\n\n");
+  const contextLine = notes ? `\nContext from user: ${notes}` : "";
+
+  if (lang === "TC") {
+    return (
+      `Translate the ${count} Korean SRT subtitle blocks below into Traditional Chinese (台灣華語/繁體中文).\n\n` +
+      `Guidelines:\n` +
+      `- Use Taiwan Mandarin vocabulary: 捷運 not 地鐵, 計程車 not 出租車, 機車 not 摩托車\n` +
+      `- Avoid Simplified Chinese characters and Mainland Chinese expressions\n` +
+      `- Render Korean honorifics naturally: 언니→姊姊, 오빠→哥哥/歐巴, 선배→學長/學姐, 아저씨→大叔/叔叔\n` +
+      `- Transliterate Korean names using Taiwan phonetic conventions\n` +
+      `- Preserve the number of text lines per block — a 2-line subtitle must stay 2 lines\n` +
+      `- Keep subtitles concise and screen-readable` +
+      outputRules(count, contextLine, body)
+    );
+  }
+
+  if (lang === "TW") {
+    return (
+      `Translate the ${count} Korean SRT subtitle blocks below into Taiwanese Hokkien (台語/臺語).\n\n` +
+      `Guidelines:\n` +
+      `- Write in Chinese characters (漢字) following 教育部台灣閩南語推薦用字\n` +
+      `- Use authentic Taiwanese Hokkien — not Mandarin words pronounced in Taiwanese\n` +
+      `- For concepts without a direct Hokkien equivalent, choose the closest natural Hokkien expression\n` +
+      `- Render Korean honorifics in Hokkien: 언니→阿姊, 오빠→阿兄, 선배→學長/前輩\n` +
+      `- Preserve the number of text lines per block — a 2-line subtitle must stay 2 lines\n` +
+      `- Keep subtitles concise and screen-readable` +
+      outputRules(count, contextLine, body)
+    );
+  }
+
+  return (
+    `Translate the ${count} Korean SRT subtitle blocks below into natural English.\n\n` +
+    `Guidelines:\n` +
+    `- Render Korean honorifics naturally: 언니→"unnie", 오빠→"oppa", 선배→"sunbae", 아저씨→"mister" (adapt to context)\n` +
+    `- Keep Korean names romanized (e.g. 민준→Min-jun, 지수→Ji-su)\n` +
+    `- Convert Korean onomatopoeia to natural English equivalents (ㅋㅋ→laughter, ㅠㅠ→sadness)\n` +
+    `- Preserve the number of text lines per block — a 2-line subtitle must stay 2 lines\n` +
+    `- Keep subtitles concise and screen-readable` +
+    outputRules(count, contextLine, body)
   );
 }
 
@@ -64,13 +112,17 @@ async function translateBatch(
   client: OpenAI,
   batch: string[],
   lang: "EN" | "TC" | "TW",
-  model: GptModel
+  model: GptModel,
+  notes: string
 ): Promise<string[]> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await client.chat.completions.create({
         model,
-        messages: [{ role: "user", content: buildPrompt(batch, lang) }],
+        messages: [
+          { role: "system", content: buildSystemPrompt(lang) },
+          { role: "user", content: buildPrompt(batch, lang, notes) },
+        ],
         temperature: 0.2,
       });
       const translated = parseBlocks(res.choices[0].message.content?.trim() ?? "");
@@ -99,6 +151,7 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file") as File | null;
   const lang = formData.get("lang") as string | null;
   const modelParam = (formData.get("model") as string | null) ?? "gpt-4o";
+  const notes = ((formData.get("notes") as string | null)?.trim() ?? "").slice(0, MAX_NOTES_LENGTH);
 
   if (!file) return new Response("No file provided", { status: 400 });
   if (!lang || !["EN", "TC", "TW"].includes(lang))
@@ -122,7 +175,6 @@ export async function POST(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const enc = new TextEncoder();
       const send = (data: Record<string, unknown>) =>
         controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}\n\n`));
 
@@ -137,7 +189,13 @@ export async function POST(request: NextRequest) {
 
           send({ type: "progress", batch: batchNum, of: totalBatches });
 
-          const translated = await translateBatch(openaiClient, batch, lang as "EN" | "TC" | "TW", model);
+          const translated = await translateBatch(
+            openaiClient,
+            batch,
+            lang as "EN" | "TC" | "TW",
+            model,
+            notes
+          );
           allTranslated.push(...translated);
 
           if (i + BATCH_SIZE < rawBlocks.length) await sleep(BATCH_SLEEP_MS);
