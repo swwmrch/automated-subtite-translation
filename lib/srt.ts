@@ -130,8 +130,10 @@ export function validateSrt(content: string, expectedBlocks: number, lang = ""):
     warnings.push({ type: "fence", message: `code fence artifacts (${fenceLines.length}): ${fenceLines.slice(0, 3).join(", ")}` });
   if (leakedNumbers.length)
     warnings.push({ type: "leaked_numbers", message: `bare numbers in text (${leakedNumbers.length}): ${leakedNumbers.slice(0, 3).join(", ")}` });
-  if (smartQuotes.length)
-    warnings.push({ type: "smart_quotes", message: `smart quotes (${smartQuotes.length}): ${smartQuotes.slice(0, 3).join(", ")}` });
+  if (smartQuotes.length) {
+    const note = lang === "EN" ? " — likely apostrophes in contractions (won't, didn't), safe to ignore" : "";
+    warnings.push({ type: "smart_quotes", message: `smart quotes (${smartQuotes.length}): ${smartQuotes.slice(0, 3).join(", ")}${note}` });
+  }
   if (tsTrailing.length)
     warnings.push({ type: "ts_trailing", message: `timestamp trailing spaces (${tsTrailing.length}): ${tsTrailing.slice(0, 3).join(", ")}` });
   if (koreanLines.length)
