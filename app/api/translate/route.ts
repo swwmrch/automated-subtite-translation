@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { sessionOptions, type SessionData } from "@/lib/session";
-import { parseSrt, blocksToRawStrings } from "@/lib/srt";
+import { parseSrt, blocksToRawStrings, parseTranslatedBlocks, fixSrtNumbering, validateSrt } from "@/lib/srt";
 import OpenAI from "openai";
 
 const BATCH_SIZE = 10;
@@ -51,7 +51,9 @@ function outputRules(count: number, contextLine: string, body: string): string {
     `\nOutput format:\n` +
     `- Exact SRT structure: index number → timestamp → translated text\n` +
     `- Return exactly ${count} blocks — no merging, no splitting\n` +
-    `- Return ONLY the SRT blocks — no commentary, no extra text` +
+    `- Return ONLY the SRT blocks — no commentary, no extra text\n` +
+    `- Do NOT wrap output in markdown code blocks (no \`\`\` fences)\n` +
+    `- Use straight apostrophes (') not curly/smart apostrophes (’)` +
     `${contextLine}\n\n---\n\n${body}`
   );
 }
@@ -101,13 +103,6 @@ function buildPrompt(blocks: string[], lang: "EN" | "TC" | "TW", notes: string):
   );
 }
 
-function parseBlocks(raw: string): string[] {
-  return raw
-    .trim()
-    .split(/\n{2,}/)
-    .filter((b) => b.trim() && b.includes("-->"));
-}
-
 async function translateBatch(
   client: OpenAI,
   batch: string[],
@@ -125,7 +120,7 @@ async function translateBatch(
         ],
         temperature: 0.2,
       });
-      const translated = parseBlocks(res.choices[0].message.content?.trim() ?? "");
+      const translated = parseTranslatedBlocks(res.choices[0].message.content?.trim() ?? "");
       if (translated.length === batch.length) return translated;
     } catch {
       // fall through to retry
@@ -201,16 +196,16 @@ export async function POST(request: NextRequest) {
           if (i + BATCH_SIZE < rawBlocks.length) await sleep(BATCH_SLEEP_MS);
         }
 
-        const srtContent =
-          allTranslated
-            .map((block, idx) => {
-              const lines = block.split("\n");
-              lines[0] = String(idx + 1);
-              return lines.join("\n");
-            })
-            .join("\n\n") + "\n";
+        const fixed = fixSrtNumbering(allTranslated);
+        const srtContent = fixed.join("\n\n") + "\n";
+        const validationWarnings = validateSrt(srtContent, fixed.length, lang);
 
-        send({ type: "done", content: srtContent, blocks: allTranslated.length });
+        send({
+          type: "done",
+          content: srtContent,
+          blocks: fixed.length,
+          warnings: validationWarnings.map((w) => w.message),
+        });
       } catch {
         send({ type: "error", message: "Translation failed. Please try again." });
       } finally {

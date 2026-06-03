@@ -11,6 +11,7 @@ interface TranslateResult {
   lang: Lang;
   content: string;
   blocks: number;
+  warnings: string[];
 }
 
 export default function HomePage() {
@@ -79,7 +80,7 @@ export default function HomePage() {
         if (event.type === "progress") {
           setProgress({ batch: event.batch, of: event.of, lang });
         } else if (event.type === "done") {
-          return { lang, content: event.content, blocks: event.blocks };
+          return { lang, content: event.content, blocks: event.blocks, warnings: event.warnings ?? [] };
         } else if (event.type === "error") {
           throw new Error(event.message);
         }
@@ -142,7 +143,7 @@ export default function HomePage() {
   const progressPct = progress.of > 0 ? Math.round((progress.batch / progress.of) * 100) : 0;
 
   const langLabel = (lang: Lang) =>
-    lang === "EN" ? "English" : lang === "TC" ? "Traditional Chinese (TW)" : "Taiwanese (台語)";
+    lang === "EN" ? "English" : lang === "TC" ? "Traditional Chinese — Taiwan" : "Taiwanese Hokkien (台語)";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -359,20 +360,26 @@ export default function HomePage() {
                   {status === "done" ? "Ready to download" : "Completed so far"}
                 </p>
                 {results.map((r) => (
-                  <div
-                    key={r.lang}
-                    className="border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{langLabel(r.lang)}</p>
-                      <p className="text-xs text-gray-400">{r.blocks} blocks</p>
+                  <div key={r.lang} className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="p-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{langLabel(r.lang)}</p>
+                        <p className="text-xs text-gray-400">{r.blocks} blocks</p>
+                      </div>
+                      <button
+                        onClick={() => downloadResult(r)}
+                        className="shrink-0 bg-gray-900 hover:bg-gray-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+                      >
+                        Download .srt
+                      </button>
                     </div>
-                    <button
-                      onClick={() => downloadResult(r)}
-                      className="shrink-0 bg-gray-900 hover:bg-gray-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
-                    >
-                      Download .srt
-                    </button>
+                    {r.warnings.length > 0 && (
+                      <div className="border-t border-amber-100 bg-amber-50 px-4 py-3 space-y-1">
+                        {r.warnings.map((w, i) => (
+                          <p key={i} className="text-xs text-amber-700">⚠ {w}</p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
