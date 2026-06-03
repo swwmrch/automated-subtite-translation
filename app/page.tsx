@@ -150,7 +150,7 @@ export default function HomePage() {
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="bg-blue-400 text-white text-xs font-bold px-2 py-0.5 rounded">
               KMTV
@@ -167,8 +167,8 @@ export default function HomePage() {
       </header>
 
       {/* 3-column layout */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
-        <div className="grid grid-cols-3 gap-5 h-full">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
           {/* LEFT — Input */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
@@ -181,7 +181,7 @@ export default function HomePage() {
               onDrop={handleDrop}
               className={`
                 flex-1 border-2 border-dashed rounded-xl cursor-pointer transition-colors
-                flex flex-col items-center justify-center min-h-72 p-6 text-center
+                flex flex-col items-center justify-center min-h-48 md:min-h-72 p-6 text-center
                 ${dragging
                   ? "border-blue-400 bg-blue-50"
                   : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}
@@ -376,7 +376,7 @@ export default function HomePage() {
                     {r.warnings.length > 0 && (
                       <div className="border-t border-amber-100 bg-amber-50 px-4 py-3 space-y-1">
                         {r.warnings.map((w, i) => (
-                          <p key={i} className="text-xs text-amber-700">⚠ {w}</p>
+                          <p key={i} className="text-xs text-amber-700 break-words">⚠ {w}</p>
                         ))}
                       </div>
                     )}
