@@ -143,7 +143,7 @@ export default function HomePage() {
   const progressPct = progress.of > 0 ? Math.round((progress.batch / progress.of) * 100) : 0;
 
   const langLabel = (lang: Lang) =>
-    lang === "EN" ? "English" : lang === "TC" ? "Traditional Chinese — Taiwan" : "Taiwanese Hokkien (台語)";
+    lang === "EN" ? "English" : lang === "TC" ? "Traditional Chinese" : "Taiwanese Hokkien (台語)";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -239,7 +239,14 @@ export default function HomePage() {
                         : "bg-white border-gray-200 text-gray-600 hover:border-gray-300 disabled:opacity-50"}
                     `}
                   >
-                    {langLabel(lang)}
+                    <span className="flex items-center gap-2">
+                      {langLabel(lang)}
+                      {lang === "TW" && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 leading-none">
+                          beta
+                        </span>
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>
