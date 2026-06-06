@@ -5,14 +5,17 @@ import { sessionOptions, type SessionData } from "@/lib/session";
 import { parseSrt, blocksToRawStrings, parseTranslatedBlocks, fixSrtNumbering, validateSrt } from "@/lib/srt";
 import OpenAI from "openai";
 
+export const maxDuration = 300;
+
 const BATCH_SIZE = 10;
 const MAX_RETRIES = 3;
 const RETRY_SLEEP_MS = 5000;
 const BATCH_SLEEP_MS = 1500;
 const MAX_FILE_SIZE = 512 * 1024; // 500 KB
 const ALLOWED_MODELS = ["gpt-4o", "gpt-4o-mini"] as const;
+const OPENAI_REQUEST_TIMEOUT_MS = 60_000;
 
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: OPENAI_REQUEST_TIMEOUT_MS });
 const enc = new TextEncoder();
 type GptModel = (typeof ALLOWED_MODELS)[number];
 
